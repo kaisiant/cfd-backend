@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cfd-brokerage-api
+  labels:
+    app: cfd-brokerage-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cfd-brokerage-api
+  template:
+    metadata:
+      labels:
+        app: cfd-brokerage-api
+    spec:
+      containers:
+        - name: api
+          image: cfd-brokerage:latest
+          ports:
+            - containerPort: 3000
+            - containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: REDIS_HOST
+              value: "redis-service"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cfd-brokerage-service
+spec:
+  selector:
+    app: cfd-brokerage-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+    - name: websocket
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer
